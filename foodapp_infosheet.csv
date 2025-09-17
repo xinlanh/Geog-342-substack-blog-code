@@ -2,5 +2,6 @@ type,username,age,password,gender,date_format,profile_pic_path,name,expiry,photo
 account,Apple,1 week,Orange,Fruit,%Y-%m-%d,,,,,,,
 account,Kiwi,2,Banana,Fruit,%Y-%m-%d,,,,,,,
 pantry,Apple,,,,,,Apple,2005-09-09,,,,
+pantry,Apple,,,,,,apple_cherry.jpg,,C:/Users/Xin Lan/OneDrive - The University of Auckland/apple_cherry.jpg,,,
 friend,Apple,,,,,,,,,Kiwi,,
 friend,Kiwi,,,,,,,,,Apple,,
