@@ -677,83 +677,99 @@ class MainApp:
         messagebox.showinfo("Coming Soon", "Cameras feature will be added later.")
 
     # FRIENDS FEATURE
-
     def show_friends(self):
         if self.friends_win and tk.Toplevel.winfo_exists(self.friends_win):
             self.friends_win.lift()
             return
+
         self.friends_win = tk.Toplevel(self.window)
         self.friends_win.title("Friends")
-        self.friends_win.geometry("600x500")
+        self.friends_win.geometry("900x500")
         self.friends_win.configure(bg=BG_COLOR)
 
+        # Header with "Add Friend" button
         header_frame = tk.Frame(self.friends_win, bg=BG_COLOR)
         header_frame.pack(fill="x", pady=5)
-        lbl_title = tk.Label(header_frame, text="Friends", font=("Arial", 16), bg=BG_COLOR)
-        lbl_title.pack(side="left", padx=10)
+        tk.Label(header_frame, text="Friends", font=("Arial", 16), bg=BG_COLOR).pack(side="left", padx=10)
+        tk.Button(header_frame, text="Add Friend", bg=BTN_COLOR, fg="white", command=self.open_add_friend_window).pack(side="right", padx=10)
 
-        btn_add_friend = tk.Button(header_frame, text="Add Friend", bg=BTN_COLOR, fg="white", command=self.open_add_friend_window)
-        btn_add_friend.pack(side="right", padx=10)
-
-        # Friend listbox on left with scrollbar
+        # Left side: Friends list with scrollbar
         friend_list_frame = tk.Frame(self.friends_win, bg=BG_COLOR)
         friend_list_frame.pack(side="left", fill="y", padx=10, pady=10)
 
-        self.friend_listbox = tk.Listbox(friend_list_frame, height=20, width=25)
+        self.friend_listbox = tk.Listbox(friend_list_frame, height=25, width=30)
         self.friend_listbox.pack(side="left", fill="y")
-        scrollbar = tk.Scrollbar(friend_list_frame, orient="vertical")
-        scrollbar.config(command=self.friend_listbox.yview)
-        scrollbar.pack(side="right", fill="y")
-        self.friend_listbox.config(yscrollcommand=scrollbar.set)
-
-        # Accepted friends
+        friend_scrollbar = tk.Scrollbar(friend_list_frame, orient="vertical", command=self.friend_listbox.yview)
+        friend_scrollbar.pack(side="left", fill="y")
+        self.friend_listbox.config(yscrollcommand=friend_scrollbar.set)
+        self.friend_listbox.bind('<<ListboxSelect>>', self.on_friend_selected)
         self.refresh_friend_list()
 
-        self.friend_listbox.bind('<<ListboxSelect>>', self.on_friend_selected)
-
-        # Display selected friend's pantry & profile
+        # Middle: Friend profile picture and pantry
         self.friend_info_frame = tk.Frame(self.friends_win, bg=PANTRY_BG_COLOR, relief="sunken", bd=2)
         self.friend_info_frame.pack(side="left", fill="both", expand=True, padx=10, pady=10)
 
-        # Profile picture label
         self.friend_profile_pic_label = tk.Label(self.friend_info_frame, bg=PANTRY_BG_COLOR)
         self.friend_profile_pic_label.pack(pady=10)
 
-        # Pantry Canvas for friend's pantry
         self.friend_pantry_canvas = tk.Canvas(self.friend_info_frame, bg=PANTRY_BG_COLOR)
         self.friend_pantry_scrollbar = tk.Scrollbar(self.friend_info_frame, orient="vertical", command=self.friend_pantry_canvas.yview)
-
         self.friend_pantry_scrollable_frame = tk.Frame(self.friend_pantry_canvas, bg=PANTRY_BG_COLOR)
+
         self.friend_pantry_scrollable_frame.bind(
             "<Configure>",
             lambda e: self.friend_pantry_canvas.configure(scrollregion=self.friend_pantry_canvas.bbox("all"))
         )
-
         self.friend_pantry_canvas.create_window((0, 0), window=self.friend_pantry_scrollable_frame, anchor="nw")
         self.friend_pantry_canvas.configure(yscrollcommand=self.friend_pantry_scrollbar.set)
-
         self.friend_pantry_canvas.pack(side="left", fill="both", expand=True)
         self.friend_pantry_scrollbar.pack(side="right", fill="y")
 
-        # Pending requests frames below friend list for sent and received requests
-        requests_frame = tk.Frame(self.friends_win, bg=BG_COLOR)
-        requests_frame.pack(side="left", fill="both", padx=10, pady=10, expand=True)
+        # Right side: Sent and Received Requests stacked vertically
+        requests_frame = tk.Frame(self.friends_win, bg=BG_COLOR, width=300)
+        requests_frame.pack(side="left", fill="y", padx=10, pady=10)
 
-        tk.Label(requests_frame, text="Pending Sent Requests", font=("Arial", 12, 'bold'), bg=BG_COLOR).pack()
-        self.sent_requests_listbox = tk.Listbox(requests_frame, height=6, width=30)
-        self.sent_requests_listbox.pack(pady=3)
+        # Sent Requests section
+        sent_label = tk.Label(requests_frame, text="Pending Sent Requests", font=("Arial", 12, 'bold'), bg=BG_COLOR)
+        sent_label.pack(pady=(0,5))
+
+        sent_frame = tk.Frame(requests_frame)
+        sent_frame.pack(pady=3, fill="x")
+
+        self.sent_requests_listbox = tk.Listbox(sent_frame, height=8, width=35)
+        self.sent_requests_listbox.pack(side="left", fill="y")
+
+        sent_scrollbar = tk.Scrollbar(sent_frame, orient="vertical", command=self.sent_requests_listbox.yview)
+        sent_scrollbar.pack(side="left", fill="y")
+
+        self.sent_requests_listbox.config(yscrollcommand=sent_scrollbar.set)
+
         self.btn_cancel_sent = tk.Button(requests_frame, text="Cancel Request", bg=BTN_COLOR, fg="white", command=self.cancel_sent_request)
-        self.btn_cancel_sent.pack(pady=3)
+        self.btn_cancel_sent.pack(pady=5, fill="x")
 
-        tk.Label(requests_frame, text="Pending Received Requests", font=("Arial", 12, 'bold'), bg=BG_COLOR).pack(pady=(10,0))
-        self.recv_requests_listbox = tk.Listbox(requests_frame, height=6, width=30)
-        self.recv_requests_listbox.pack(pady=3)
+        # Received Requests section
+        recv_label = tk.Label(requests_frame, text="Pending Received Requests", font=("Arial", 12, 'bold'), bg=BG_COLOR)
+        recv_label.pack(pady=(20,5))
+
+        recv_frame = tk.Frame(requests_frame)
+        recv_frame.pack(pady=3, fill="x")
+
+        self.recv_requests_listbox = tk.Listbox(recv_frame, height=8, width=35)
+        self.recv_requests_listbox.pack(side="left", fill="y")
+
+        recv_scrollbar = tk.Scrollbar(recv_frame, orient="vertical", command=self.recv_requests_listbox.yview)
+        recv_scrollbar.pack(side="left", fill="y")
+
+        self.recv_requests_listbox.config(yscrollcommand=recv_scrollbar.set)
+
         btn_accept = tk.Button(requests_frame, text="Accept Request", bg=BTN_COLOR, fg="white", command=self.accept_friend_request)
         btn_decline = tk.Button(requests_frame, text="Decline Request", bg=BTN_COLOR, fg="white", command=self.decline_friend_request)
-        btn_accept.pack(pady=3)
-        btn_decline.pack(pady=3)
+        btn_accept.pack(pady=5, fill="x")
+        btn_decline.pack(pady=5, fill="x")
+
 
         self.refresh_requests_lists()
+
 
     def refresh_friend_list(self):
         self.friend_listbox.delete(0, tk.END)
@@ -762,14 +778,16 @@ class MainApp:
             self.friend_listbox.insert(tk.END, friend)
 
     def refresh_requests_lists(self):
-        # Refresh Sent Requests
         self.sent_requests_listbox.delete(0, tk.END)
-        for user in sorted(self.sent_requests.get(self.account.username, [])):
+        sent = sorted(self.sent_requests.get(self.account.username, []))
+        for user in sent:
             self.sent_requests_listbox.insert(tk.END, user)
-        # Refresh Received Requests
+
         self.recv_requests_listbox.delete(0, tk.END)
-        for user in sorted(self.received_requests.get(self.account.username, [])):
+        received = sorted(self.received_requests.get(self.account.username, []))
+        for user in received:
             self.recv_requests_listbox.insert(tk.END, user)
+
 
     def cancel_sent_request(self):
         sel = self.sent_requests_listbox.curselection()

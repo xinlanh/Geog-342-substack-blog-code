@@ -1,4 +1,6 @@
 type,username,age,password,gender,date_format,profile_pic_path,name,expiry,photo_path,friend_username,to_username,from_username
 account,Apple,1 week,Orange,Fruit,%Y-%m-%d,,,,,,,
 account,Kiwi,2,Banana,Fruit,%Y-%m-%d,,,,,,,
-pantry,Apple,,,,,,,,,,,
+pantry,Apple,,,,,,Apple,2005-09-09,,,,
+friend,Apple,,,,,,,,,Kiwi,,
+friend,Kiwi,,,,,,,,,Apple,,
