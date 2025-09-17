@@ -7,6 +7,16 @@ import os
 
 CSV_FILE = "foodapp_infosheet.csv"
 
+# Colors for woodsy style
+BG_COLOR = "#D2B48C"          # Tan Brown Background
+BTN_COLOR = "#8B5E3C"         # Dark Brown Button
+PANTRY_BG_COLOR = "#FFF8DC"   # Warm White / Light Yellow Pantry Background
+PANTRY_ITEM_COLORS = {        # Text colors based on expiry
+    "expired": "red",
+    "warning": "green",
+    "normal": "black"
+}
+
 class Account:
     def __init__(self, username, age, password):
         self.username = username
@@ -20,26 +30,31 @@ class LoginApp:
         self.root = root
         self.root.title("Food Tracker")
         self.root.geometry("300x220")
+        self.root.configure(bg=BG_COLOR)
 
         self.accounts = {}
         self.accounts["Apple"] = Account("Apple", "1 week", "Orange")
 
-        self.frame = tk.Frame(root)
+        self.frame = tk.Frame(root, bg=BG_COLOR)
         self.frame.pack(pady=10)
 
-        tk.Label(self.frame, text="Username:").pack()
+        lbl = tk.Label(self.frame, text="Username:", bg=BG_COLOR)
+        lbl.pack()
         self.entry_username = tk.Entry(self.frame)
         self.entry_username.pack()
 
-        tk.Label(self.frame, text="Password:").pack()
+        lbl = tk.Label(self.frame, text="Password:", bg=BG_COLOR)
+        lbl.pack()
         self.entry_password = tk.Entry(self.frame, show="*")
         self.entry_password.pack()
 
-        self.btn_login = tk.Button(self.frame, text="Login", command=self.check_login)
+        self.btn_login = tk.Button(self.frame, text="Login", bg=BTN_COLOR, fg="white", command=self.check_login)
         self.btn_login.pack(pady=5)
 
-        self.btn_create = tk.Button(self.frame, text="Create Account", command=self.create_account)
+        self.btn_create = tk.Button(self.frame, text="Create Account", bg=BTN_COLOR, fg="white", command=self.create_account)
         self.btn_create.pack()
+
+        self.load_data_from_csv()  # Load users & pantry on startup
 
     def check_login(self):
         user = self.entry_username.get()
@@ -48,7 +63,7 @@ class LoginApp:
         if account and account.password == pwd:
             messagebox.showinfo("Login Success", f"Welcome {user}!")
             self.root.destroy()
-            MainApp(account, self.accounts)
+            MainApp(account, self.accounts, self.pantry_data)
         else:
             messagebox.showerror("Login Failed", "Invalid username or password")
 
@@ -56,16 +71,17 @@ class LoginApp:
         create_win = tk.Toplevel(self.root)
         create_win.title("Create Account")
         create_win.geometry("300x230")
+        create_win.configure(bg=BG_COLOR)
 
-        tk.Label(create_win, text="Username:").pack(pady=2)
+        tk.Label(create_win, text="Username:", bg=BG_COLOR).pack(pady=2)
         entry_user = tk.Entry(create_win)
         entry_user.pack(pady=2)
 
-        tk.Label(create_win, text="Age:").pack(pady=2)
+        tk.Label(create_win, text="Age:", bg=BG_COLOR).pack(pady=2)
         entry_age = tk.Entry(create_win)
         entry_age.pack(pady=2)
 
-        tk.Label(create_win, text="Password:").pack(pady=2)
+        tk.Label(create_win, text="Password:", bg=BG_COLOR).pack(pady=2)
         entry_pwd = tk.Entry(create_win, show="*")
         entry_pwd.pack(pady=2)
 
@@ -81,28 +97,107 @@ class LoginApp:
                 return
             self.accounts[username] = Account(username, age, password)
             messagebox.showinfo("Success", f"Account created for {username}. Please login.")
+            self.save_data_to_csv()
             create_win.destroy()
 
-        tk.Button(create_win, text="Create", command=save_new_account).pack(pady=10)
+        tk.Button(create_win, text="Create", bg=BTN_COLOR, fg="white", command=save_new_account).pack(pady=10)
+
+    def load_data_from_csv(self):
+        self.pantry_data = []
+        if not os.path.exists(CSV_FILE):
+            return
+        try:
+            with open(CSV_FILE, newline='', encoding='utf-8') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    if row['type'] == 'account':
+                        username = row['username']
+                        age = row['age']
+                        password = row['password']
+                        if username not in self.accounts:
+                            self.accounts[username] = Account(username, age, password)
+                    elif row['type'] == 'pantry':
+                        expiry = None
+                        if row['expiry']:
+                            try:
+                                expiry = datetime.strptime(row['expiry'], "%Y-%m-%d").date()
+                            except:
+                                expiry = None
+                        self.pantry_data.append({
+                            "name": row['name'],
+                            "expiry": expiry,
+                            "photo_path": row['photo_path'],
+                        })
+        except Exception as e:
+            print(f"Error loading CSV: {e}")
+
+    def save_data_to_csv(self):
+        try:
+            with open(CSV_FILE, 'w', newline='', encoding='utf-8') as csvfile:
+                fieldnames = ['type','username','age','password','name','expiry','photo_path']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                for user, acc in self.accounts.items():
+                    writer.writerow({
+                        'type': 'account',
+                        'username': acc.username,
+                        'age': acc.age,
+                        'password': acc.password,
+                        'name': '',
+                        'expiry': '',
+                        'photo_path': '',
+                    })
+                for item in self.pantry_data:
+                    writer.writerow({
+                        'type': 'pantry',
+                        'username': '',
+                        'age': '',
+                        'password': '',
+                        'name': item["name"],
+                        'expiry': item['expiry'].strftime("%Y-%m-%d") if item['expiry'] else '',
+                        'photo_path': item['photo_path'] if item['photo_path'] else '',
+                    })
+        except Exception as e:
+            print(f"Error saving CSV: {e}")
 
 class MainApp:
-    def __init__(self, account, accounts):
+    def __init__(self, account, accounts, pantry_data):
         self.account = account
         self.accounts = accounts
-
+        self.pantry_data = pantry_data
         self.pantry = []
+
+        # Load pantry photos from photo_path if exists
+        for item in pantry_data:
+            photo = None
+            if item.get("photo_path") and os.path.exists(item["photo_path"]):
+                try:
+                    img = Image.open(item["photo_path"])
+                    img.thumbnail((50,50))
+                    photo = ImageTk.PhotoImage(img)
+                except:
+                    photo = None
+            selected_var = tk.BooleanVar(value=False)
+            self.pantry.append({
+                "name": item["name"],
+                "expiry": item["expiry"],
+                "photo": photo,
+                "photo_path": item.get("photo_path"),
+                "selected_var": selected_var
+            })
 
         self.window = tk.Tk()
         self.window.title("Food Tracker Main Menu")
         self.window.geometry("650x500")
+        self.window.configure(bg=BG_COLOR)
 
-        btn_scan = tk.Button(self.window, text="Scan Item", width=20, command=self.scan_item)
-        btn_pantry = tk.Button(self.window, text="Pantry", width=20, command=self.show_pantry)
-        btn_recipe = tk.Button(self.window, text="Generate Recipe", width=20, command=self.generate_recipe)
-        btn_cameras = tk.Button(self.window, text="Cameras", width=20, command=self.cameras)
-        btn_friends = tk.Button(self.window, text="Friends", width=20, command=self.friends)
-        btn_account = tk.Button(self.window, text="Account", width=20, command=self.show_account)
-        btn_signout = tk.Button(self.window, text="Sign Out", width=20, command=self.sign_out)
+        btn_scan = tk.Button(self.window, text="Scan Item", width=20, bg=BTN_COLOR, fg="white", command=self.scan_item)
+        btn_pantry = tk.Button(self.window, text="Pantry", width=20, bg=BTN_COLOR, fg="white", command=self.show_pantry)
+        btn_recipe = tk.Button(self.window, text="Generate Recipe", width=20, bg=BTN_COLOR, fg="white", command=self.generate_recipe)
+        btn_cameras = tk.Button(self.window, text="Cameras", width=20, bg=BTN_COLOR, fg="white", command=self.cameras)
+        btn_friends = tk.Button(self.window, text="Friends", width=20, bg=BTN_COLOR, fg="white", command=self.friends)
+        btn_account = tk.Button(self.window, text="Account", width=20, bg=BTN_COLOR, fg="white", command=self.show_account)
+        btn_signout = tk.Button(self.window, text="Sign Out", width=20, bg=BTN_COLOR, fg="white", command=self.sign_out)
 
         btn_scan.pack(pady=5)
         btn_pantry.pack(pady=5)
@@ -113,8 +208,6 @@ class MainApp:
         btn_signout.pack(pady=5)
 
         self.pantry_win = None
-
-        self.load_pantry_from_csv()  # Load saved pantry
 
         self.window.mainloop()
 
@@ -128,14 +221,21 @@ class MainApp:
             img.thumbnail((50, 50))
             photo = ImageTk.PhotoImage(img)
             selected_var = tk.BooleanVar(value=False)
+            item_name = file_path.split("/")[-1]
             self.pantry.append({
-                "name": file_path.split("/")[-1],
+                "name": item_name,
                 "expiry": None,
                 "photo": photo,
+                "photo_path": file_path,
                 "selected_var": selected_var
             })
-            self.save_pantry_to_csv()
-            messagebox.showinfo("Item Scanned", f"Added {self.pantry[-1]['name']} to pantry with image.")
+            self.pantry_data.append({
+                "name": item_name,
+                "expiry": None,
+                "photo_path": file_path
+            })
+            self.save_all_to_csv()
+            messagebox.showinfo("Item Scanned", f"Added {item_name} to pantry with image.")
             self.check_expiry_reminders()
 
     def show_pantry(self):
@@ -147,13 +247,14 @@ class MainApp:
         self.pantry_win = tk.Toplevel(self.window)
         self.pantry_win.title("Pantry Items")
         self.pantry_win.geometry("650x500")
+        self.pantry_win.configure(bg=PANTRY_BG_COLOR)
 
-        self.main_frame = tk.Frame(self.pantry_win)
+        self.main_frame = tk.Frame(self.pantry_win, bg=PANTRY_BG_COLOR)
         self.main_frame.pack(fill="both", expand=True)
 
-        self.canvas = tk.Canvas(self.main_frame)
+        self.canvas = tk.Canvas(self.main_frame, bg=PANTRY_BG_COLOR)
         self.scrollbar = tk.Scrollbar(self.main_frame, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = tk.Frame(self.canvas)
+        self.scrollable_frame = tk.Frame(self.canvas, bg=PANTRY_BG_COLOR)
 
         self.scrollable_frame.bind(
             "<Configure>",
@@ -166,16 +267,16 @@ class MainApp:
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        btn_frame = tk.Frame(self.pantry_win)
+        btn_frame = tk.Frame(self.pantry_win, bg=PANTRY_BG_COLOR)
         btn_frame.pack(side="bottom", pady=10, fill="x")
 
-        btn_edit = tk.Button(btn_frame, text="Edit Selected", command=self.edit_selected)
+        btn_edit = tk.Button(btn_frame, text="Edit Selected", bg=BTN_COLOR, fg="white", command=self.edit_selected)
         btn_edit.pack(side="left", padx=10)
 
-        btn_add = tk.Button(btn_frame, text="Add Item", command=self.add_item)
+        btn_add = tk.Button(btn_frame, text="Add Item", bg=BTN_COLOR, fg="white", command=self.add_item)
         btn_add.pack(side="left", padx=10)
 
-        btn_delete = tk.Button(btn_frame, text="Delete Selected", command=self.delete_selected)
+        btn_delete = tk.Button(btn_frame, text="Delete Selected", bg=BTN_COLOR, fg="white", command=self.delete_selected)
         btn_delete.pack(side="left", padx=10)
 
         self.refresh_pantry_contents()
@@ -187,32 +288,31 @@ class MainApp:
             widget.destroy()
 
         if len(self.pantry) == 0:
-            empty_lbl = tk.Label(self.scrollable_frame, text="Pantry is empty. Add items below.", pady=10)
+            empty_lbl = tk.Label(self.scrollable_frame, text="Pantry is empty. Add items below.", pady=10, bg=PANTRY_BG_COLOR)
             empty_lbl.pack()
             return
 
         for item in self.pantry:
-            frame = tk.Frame(self.scrollable_frame, pady=5)
+            frame = tk.Frame(self.scrollable_frame, pady=5, bg=PANTRY_BG_COLOR)
             frame.pack(fill="x", padx=5)
 
-            checkbox = tk.Checkbutton(frame, variable=item["selected_var"])
+            checkbox = tk.Checkbutton(frame, variable=item["selected_var"], bg=PANTRY_BG_COLOR)
             checkbox.pack(side="left", padx=5)
 
             if item["photo"]:
-                lbl_img = tk.Label(frame, image=item["photo"])
+                lbl_img = tk.Label(frame, image=item["photo"], bg=PANTRY_BG_COLOR)
                 lbl_img.pack(side="left", padx=5)
 
-            # Color items: red if expired, green if expiring soon
-            color = "black"
+            color = PANTRY_ITEM_COLORS["normal"]
             today = datetime.now().date()
             if item["expiry"]:
                 if item["expiry"] < today:
-                    color = "red"
+                    color = PANTRY_ITEM_COLORS["expired"]
                 elif item["expiry"] <= today + timedelta(days=7):
-                    color = "green"
+                    color = PANTRY_ITEM_COLORS["warning"]
 
             expiry_str = item["expiry"].strftime(self.account.date_format) if item["expiry"] else "No expiry"
-            lbl_text = tk.Label(frame, text=f"{item['name']} , Expiry: {expiry_str}", anchor="w", fg=color)
+            lbl_text = tk.Label(frame, text=f"{item['name']} , Expiry: {expiry_str}", anchor="w", fg=color, bg=PANTRY_BG_COLOR)
             lbl_text.pack(side="left")
 
     def get_selected_indices(self):
@@ -256,27 +356,37 @@ class MainApp:
                 messagebox.showerror("Input Error", f"Expiry date must be in {self.account.date_format} format or empty")
                 return
 
+            # Update pantry item and pantry_data for CSV saving
             self.pantry[index]["name"] = new_name
             self.pantry[index]["expiry"] = new_expiry
             self.pantry[index]["selected_var"].set(False)
-            self.save_pantry_to_csv()
+
+            # Find matching pantry_data item to update
+            for pdata in self.pantry_data:
+                if pdata["name"] == item["name"]:
+                    pdata["name"] = new_name
+                    pdata["expiry"] = new_expiry
+                    break
+
+            self.save_all_to_csv()
             self.refresh_pantry_contents()
             edit_win.destroy()
             self.check_expiry_reminders()
             self.show_expired_warning()
 
-        tk.Button(edit_win, text="Save", command=save_changes).pack(pady=10)
+        tk.Button(edit_win, text="Save", bg=BTN_COLOR, fg="white", command=save_changes).pack(pady=10)
 
     def add_item(self):
         add_win = tk.Toplevel(self.pantry_win)
         add_win.title("Add Pantry Item")
-        add_win.geometry("300x180")
+        add_win.geometry("300x190")
+        add_win.configure(bg=PANTRY_BG_COLOR)
 
-        tk.Label(add_win, text="Name:").pack(pady=5)
+        tk.Label(add_win, text="Name:", bg=PANTRY_BG_COLOR).pack(pady=5)
         entry_name = tk.Entry(add_win)
         entry_name.pack()
 
-        tk.Label(add_win, text=f"Expiry Date ({self.account.date_format}):").pack(pady=5)
+        tk.Label(add_win, text=f"Expiry Date ({self.account.date_format}):", bg=PANTRY_BG_COLOR).pack(pady=5)
         entry_expiry = tk.Entry(add_win)
         entry_expiry.pack()
 
@@ -292,14 +402,16 @@ class MainApp:
                 messagebox.showerror("Input Error", f"Expiry date must be in {self.account.date_format} format or empty")
                 return
             selected_var = tk.BooleanVar(value=False)
-            self.pantry.append({"name": name, "expiry": expiry, "photo": None, "selected_var": selected_var})
-            self.save_pantry_to_csv()
+            item = {"name": name, "expiry": expiry, "photo": None, "selected_var": selected_var}
+            self.pantry.append(item)
+            self.pantry_data.append({"name": name, "expiry": expiry, "photo_path": None})
+            self.save_all_to_csv()
             self.refresh_pantry_contents()
             add_win.destroy()
             self.check_expiry_reminders()
             self.show_expired_warning()
 
-        tk.Button(add_win, text="Add", command=save_new).pack(pady=10)
+        tk.Button(add_win, text="Add", bg=BTN_COLOR, fg="white", command=save_new).pack(pady=10)
 
     def delete_selected(self):
         indices = sorted(self.get_selected_indices(), reverse=True)
@@ -309,9 +421,14 @@ class MainApp:
         confirm = messagebox.askyesno("Confirm Delete", f"Delete {len(indices)} selected item(s)?")
         if not confirm:
             return
+        removed_names = []
         for index in indices:
+            removed_names.append(self.pantry[index]["name"])
             del self.pantry[index]
-        self.save_pantry_to_csv()
+        # Remove from pantry_data
+        self.pantry_data = [item for item in self.pantry_data if item["name"] not in removed_names]
+
+        self.save_all_to_csv()
         self.refresh_pantry_contents()
         self.check_expiry_reminders()
         self.show_expired_warning()
@@ -320,11 +437,8 @@ class MainApp:
         soon = datetime.now().date() + timedelta(days=7)
         expiring_items = []
         for item in self.pantry:
-            if item["expiry"]:
-                if item["expiry"] < datetime.now().date():
-                    self.show_expired_warning()
-                    return
-                elif item["expiry"] <= soon:
+            if item["expiry"] and item["expiry"] <= soon:
+                if item["expiry"] >= datetime.now().date():
                     expiring_items.append(f"{item['name']} (expires {item['expiry'].strftime(self.account.date_format)})")
         if expiring_items:
             messagebox.showwarning(
@@ -340,31 +454,34 @@ class MainApp:
                 "The following food items are expired:\n\n" + "\n".join([item["name"] for item in expired_items])
             )
 
-    def save_pantry_to_csv(self):
-        with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow(["name", "expiry"])
-            for item in self.pantry:
-                exp_str = item["expiry"].strftime(self.account.date_format) if item["expiry"] else ""
-                writer.writerow([item["name"], exp_str])
-
-    def load_pantry_from_csv(self):
-        if not os.path.exists(CSV_FILE):
-            return
-        with open(CSV_FILE, mode='r', newline='', encoding='utf-8') as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                name = row["name"]
-                expiry_str = row["expiry"]
-                expiry = None
-                if expiry_str:
-                    try:
-                        expiry = datetime.strptime(expiry_str, self.account.date_format).date()
-                    except:
-                        expiry = None
-                selected_var = tk.BooleanVar(value=False)
-                # No image loaded from CSV, photo=None
-                self.pantry.append({"name": name, "expiry": expiry, "photo": None, "selected_var": selected_var})
+    def save_all_to_csv(self):
+        try:
+            with open(CSV_FILE, "w", newline="", encoding="utf-8") as csvfile:
+                fieldnames = ["type", "username", "age", "password", "name", "expiry", "photo_path"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                for user, acc in self.accounts.items():
+                    writer.writerow({
+                        "type": "account",
+                        "username": acc.username,
+                        "age": acc.age,
+                        "password": acc.password,
+                        "name": "",
+                        "expiry": "",
+                        "photo_path": "",
+                    })
+                for item in self.pantry_data:
+                    writer.writerow({
+                        "type": "pantry",
+                        "username": "",
+                        "age": "",
+                        "password": "",
+                        "name": item["name"],
+                        "expiry": item["expiry"].strftime("%Y-%m-%d") if item["expiry"] else "",
+                        "photo_path": item["photo_path"] if item["photo_path"] else "",
+                    })
+        except Exception as e:
+            print(f"Error saving CSV: {e}")
 
     # Placeholder methods for other buttons
     def generate_recipe(self):
@@ -384,23 +501,25 @@ class MainApp:
         self.account_win = tk.Toplevel(self.window)
         self.account_win.title("User Account")
         self.account_win.geometry("350x300")
+        self.account_win.configure(bg=BG_COLOR)
 
         def edit_personal_info():
             edit_win = tk.Toplevel(self.account_win)
             edit_win.title("Edit Personal Info")
             edit_win.geometry("300x220")
+            edit_win.configure(bg=BG_COLOR)
 
-            tk.Label(edit_win, text="Name:").pack(pady=2)
+            tk.Label(edit_win, text="Name:", bg=BG_COLOR).pack(pady=2)
             entry_name = tk.Entry(edit_win)
             entry_name.pack(pady=2)
             entry_name.insert(0, self.account.username)
 
-            tk.Label(edit_win, text="Age:").pack(pady=2)
+            tk.Label(edit_win, text="Age:", bg=BG_COLOR).pack(pady=2)
             entry_age = tk.Entry(edit_win)
             entry_age.pack(pady=2)
             entry_age.insert(0, self.account.age)
 
-            tk.Label(edit_win, text="Gender:").pack(pady=2)
+            tk.Label(edit_win, text="Gender:", bg=BG_COLOR).pack(pady=2)
             entry_gender = tk.Entry(edit_win)
             entry_gender.pack(pady=2)
             entry_gender.insert(0, self.account.gender)
@@ -413,14 +532,15 @@ class MainApp:
                 edit_win.destroy()
                 self.account_win.destroy()
 
-            tk.Button(edit_win, text="Save", command=save_info).pack(pady=10)
+            tk.Button(edit_win, text="Save", command=save_info, bg=BTN_COLOR, fg="white").pack(pady=10)
 
         def settings():
             settings_win = tk.Toplevel(self.account_win)
             settings_win.title("Settings")
             settings_win.geometry("300x220")
+            settings_win.configure(bg=BG_COLOR)
 
-            tk.Label(settings_win, text="Date Format (Python strftime format):").pack(pady=5)
+            tk.Label(settings_win, text="Date Format (Python strftime format):", bg=BG_COLOR).pack(pady=5)
             entry_date_fmt = tk.Entry(settings_win)
             entry_date_fmt.pack()
             entry_date_fmt.insert(0, self.account.date_format)
@@ -430,27 +550,29 @@ class MainApp:
                 try:
                     datetime.now().strftime(fmt)
                     self.account.date_format = fmt
+                    self.save_all_to_csv()
                     messagebox.showinfo("Success", "Date format updated.")
                     settings_win.destroy()
                 except:
                     messagebox.showerror("Error", "Invalid date format string.")
 
-            tk.Button(settings_win, text="Save", command=save_settings).pack(pady=10)
+            tk.Button(settings_win, text="Save", command=save_settings, bg=BTN_COLOR, fg="white").pack(pady=10)
 
             def change_password():
                 cp_win = tk.Toplevel(settings_win)
                 cp_win.title("Change Password")
                 cp_win.geometry("300x180")
+                cp_win.configure(bg=BG_COLOR)
 
-                tk.Label(cp_win, text="Current Password:").pack(pady=2)
+                tk.Label(cp_win, text="Current Password:", bg=BG_COLOR).pack(pady=2)
                 entry_current = tk.Entry(cp_win, show="*")
                 entry_current.pack(pady=2)
 
-                tk.Label(cp_win, text="New Password:").pack(pady=2)
+                tk.Label(cp_win, text="New Password:", bg=BG_COLOR).pack(pady=2)
                 entry_new = tk.Entry(cp_win, show="*")
                 entry_new.pack(pady=2)
 
-                tk.Label(cp_win, text="Confirm New Password:").pack(pady=2)
+                tk.Label(cp_win, text="Confirm New Password:", bg=BG_COLOR).pack(pady=2)
                 entry_confirm = tk.Entry(cp_win, show="*")
                 entry_confirm.pack(pady=2)
 
@@ -468,12 +590,13 @@ class MainApp:
                         messagebox.showerror("Error", "New password cannot be empty.")
                         return
                     self.account.password = new
+                    self.save_all_to_csv()
                     messagebox.showinfo("Success", "Password changed successfully.")
                     cp_win.destroy()
 
-                tk.Button(cp_win, text="Save Password", command=save_password).pack(pady=10)
+                tk.Button(cp_win, text="Save Password", command=save_password, bg=BTN_COLOR, fg="white").pack(pady=10)
 
-            tk.Button(settings_win, text="Change Password", command=change_password).pack(pady=10)
+            tk.Button(settings_win, text="Change Password", command=change_password, bg=BTN_COLOR, fg="white").pack(pady=10)
 
         info_str = (
             f"Name: {self.account.username}\n"
@@ -481,17 +604,16 @@ class MainApp:
             f"Gender: {self.account.gender}\n"
             f"Date Format: {self.account.date_format}"
         )
-        tk.Label(self.account_win, text=info_str).pack(pady=10)
+        tk.Label(self.account_win, text=info_str, bg=BG_COLOR).pack(pady=10)
 
-        tk.Button(self.account_win, text="Edit Personal Info", command=edit_personal_info).pack(pady=5)
-        tk.Button(self.account_win, text="Settings", command=settings).pack(pady=5)
+        tk.Button(self.account_win, text="Edit Personal Info", command=edit_personal_info, bg=BTN_COLOR, fg="white").pack(pady=5)
+        tk.Button(self.account_win, text="Settings", command=settings, bg=BTN_COLOR, fg="white").pack(pady=5)
 
     def sign_out(self):
         self.window.destroy()
         root = tk.Tk()
         LoginApp(root)
         root.mainloop()
-
 
 if __name__ == "__main__":
     root = tk.Tk()
