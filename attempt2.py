@@ -269,17 +269,17 @@ class MainApp:
 
         self.pantry = []  # Current user's pantry items as dict with loaded images
 
-        # Load user's pantry items & photos
-        self.load_user_pantry()
-
-        # Load profile photos for all accounts with caching
-        self.load_all_profile_photos()
-
         # Main window
         self.window = tk.Tk()
         self.window.title("Food Tracker Main Menu")
         self.window.geometry("650x500")
         self.window.configure(bg=BG_COLOR)
+
+        # Load user's pantry items & photos
+        self.load_user_pantry()
+
+        # Load profile photos for all accounts with caching
+        self.load_all_profile_photos()
 
         # Buttons
         btn_scan = tk.Button(self.window, text="Scan Item", width=20, bg=BTN_COLOR, fg="white", command=self.scan_item)
